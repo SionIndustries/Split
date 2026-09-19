@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="SPLIT — Instant 50 / 30 / 10 / 10 allocation with committed capital and bill due dates." />
+  <title>SPLIT</title>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       App icons — relative paths so they work on GitHub Pages
+       project sites (https://USER.github.io/REPO/)
+       ══════════════════════════════════════════════════════════════ -->
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="SPLIT" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+          },
+          colors: {
+            obsidian: '#000000',
+            charcoal: '#1A1A1A',
+            carbon:   '#0A0A0A',
+            card:     '#111111',
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Inter — crisp, neutral, high-contrast -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Base ──────────────────────────────────────────────────── */
+    html {
+      -webkit-text-size-adjust: 100%;
+      background-color: #000000;
+    }
+
+    body {
+      background-color: #000000;
+      overscroll-behavior-y: none;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      min-height: 100svh;
+    }
+
+    /* ── Numeric stability during animation ────────────────────── */
+    [data-amount],
+    [data-committed],
+    [data-available],
+    .bill-amount {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: 'tnum' 1;
+    }
+
+    /* ── Clear button reveal ───────────────────────────────────── */
+    #clear {
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        opacity 0.3s ease,
+        transform 0.3s ease,
+        border-color 0.3s ease,
+        color 0.3s ease;
+    }
+
+    #clear.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ── Kill native number spinners / autofill chrome ─────────── */
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+      -webkit-text-fill-color: #ffffff;
+      -webkit-box-shadow: 0 0 0px 1000px #000000 inset;
+      transition: background-color 5000s ease-in-out 0s;
+    }
+
+    /* ── Native date picker — noir restyling ──────────────────── */
+    input[type="date"] {
+      color-scheme: dark;
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      opacity: 0.45;
+      cursor: pointer;
+      transition: opacity 0.25s ease;
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator:hover {
+      opacity: 0.9;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       QUICK RANGE SLIDER
+       ══════════════════════════════════════════════════════════════ */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+
+    input[type=range]:focus {
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+      background: #1A1A1A;
+      border-radius: 2px;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      -webkit-appearance: none;
+      margin-top: -6px;
+      box-shadow: 0 0 0 4px #000000;
+      transition: transform 0.1s ease;
+    }
+
+    input[type=range]::-webkit-slider-thumb:active {
+      transform: scale(1.15);
+    }
+
+    input[type=range]::-moz-range-track {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+      background: #1A1A1A;
+      border-radius: 2px;
+    }
+
+    input[type=range]::-moz-range-thumb {
+      height: 16px;
+      width: 16px;
+      border: none;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      box-shadow: 0 0 0 4px #000000;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       BILL TRACKER
+       ══════════════════════════════════════════════════════════════ */
+    .bill-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      transition: background-color 0.3s ease;
+    }
+
+    .bill-row:first-child {
+      border-top: none;
+    }
+
+    @keyframes billIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .bill-row.is-new {
+      animation: billIn 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    }
+
+    .bill-row.is-removing {
+      opacity: 0;
+      transform: translateX(-10px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    /* ── Toggle (pending → settled) ────────────────────────────── */
+    .bill-toggle {
+      position: relative;
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: transparent;
+      transition:
+        background-color 0.35s ease,
+        border-color 0.35s ease,
+        transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .bill-toggle:active {
+      transform: scale(0.85);
+    }
+
+    .bill-row.is-settled .bill-toggle {
+      background: #ffffff;
+      border-color: #ffffff;
+    }
+
+    /* Overdue pulse (subtle) */
+    @keyframes overduePulse {
+      0%, 100% { border-color: rgba(255, 255, 255, 0.55); }
+      50%      { border-color: rgba(255, 255, 255, 0.20); }
+    }
+
+    .bill-row.is-overdue:not(.is-settled) .bill-toggle {
+      animation: overduePulse 2.4s ease-in-out infinite;
+    }
+
+    .bill-toggle svg {
+      position: absolute;
+      inset: 0;
+      margin: auto;
+      width: 9px;
+      height: 9px;
+      color: #000000;
+      opacity: 0;
+      transform: scale(0.5);
+      transition:
+        opacity 0.3s ease,
+        transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .bill-row.is-settled .bill-toggle svg {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* ── Name + animated strikethrough ─────────────────────────── */
+    .bill-name {
+      position: relative;
+      display: inline-block;
+      max-width: 100%;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      color: rgba(255, 255, 255, 0.92);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: bottom;
+      transition: color 0.45s ease;
+    }
+
+    .bill-name::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      height: 1px;
+      width: 0;
+      background: currentColor;
+      opacity: 0.85;
+      pointer-events: none;
+      transition: width 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+
+    .bill-row.is-settled .bill-name {
+      color: rgba(255, 255, 255, 0.30);
+    }
+
+    .bill-row.is-settled .bill-name::after {
+      width: 100%;
+    }
+
+    /* ── Meta line ─────────────────────────────────────────────── */
+    .bill-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 3px;
+      font-size: 8px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      flex-wrap: wrap;
+    }
+
+    .bill-row.is-settled .bill-meta-pillar {
+      color: rgba(255, 255, 255, 0.16);
+    }
+
+    .bill-row.is-settled [data-status] {
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    /* ── Due badge ─────────────────────────────────────────────── */
+    .due-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      color: rgba(255, 255, 255, 0.42);
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      transition: color 0.4s ease, border-color 0.4s ease;
+    }
+
+    .bill-row.is-settled .due-badge {
+      color: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .due-badge.is-overdue {
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.55);
+    }
+
+    .due-badge.is-soon {
+      color: rgba(255, 255, 255, 0.85);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+
+    /* ── Amount ────────────────────────────────────────────────── */
+    .bill-amount {
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: rgba(255, 255, 255, 0.88);
+      transition: color 0.45s ease, opacity 0.45s ease;
+    }
+
+    .bill-row.is-settled .bill-amount {
+      color: rgba(255, 255, 255, 0.26);
+    }
+
+    /* ── Delete ────────────────────────────────────────────────── */
+    .bill-delete {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.16);
+      transition: color 0.3s ease, transform 0.2s ease;
+    }
+
+    .bill-delete:hover,
+    .bill-delete:active {
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .bill-delete:active {
+      transform: scale(0.82);
+    }
+
+    /* ── Negative available emphasis ───────────────────────────── */
+    [data-available].is-negative {
+      color: rgba(255, 255, 255, 0.32);
+    }
+
+    /* ── Currency list scrollbar (invisible, luxury) ──────────── */
+    #currencyList {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    #currencyList::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* ── Reduced motion ────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="min-h-[100svh] bg-black font-sans text-white antialiased selection:bg-white selection:text-black">
+
+  <div id="app" class="app-shell mx-auto flex w-full max-w-[440px] flex-col px-6 pb-10">
+
+    <!-- ════════════════════════════════════════════════════════════
+         HEADER
+         ════════════════════════════════════════════════════════════ -->
+    <header class="flex items-center justify-between pt-8">
+      <div class="flex items-center gap-2.5">
+        <svg class="h-4 w-4" viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="5.5"  y="9"  width="3" height="14" rx="1.5" fill="#ffffff" />
+          <rect x="11.5" y="13" width="3" height="10" rx="1.5" fill="#ffffff" opacity="0.70" />
+          <rect x="17.5" y="18" width="3" height="5"  rx="1.5" fill="#ffffff" opacity="0.45" />
+          <rect x="23.5" y="18" width="3" height="5"  rx="1.5" fill="#ffffff" opacity="0.25" />
+        </svg>
+        <span class="text-[11px] font-semibold tracking-[0.42em] text-white">SPLIT</span>
+      </div>
+
+      <!-- Currency selector trigger -->
+      <button
+        id="currencyBtn"
+        type="button"
+        aria-label="Change currency"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        class="group flex items-center gap-2 rounded-full border border-white/10 py-1.5 pl-3 pr-2.5 transition-colors duration-300 hover:border-white/30 focus:outline-none focus-visible:border-white/40 active:scale-[0.97]"
+      >
+        <span data-symbol class="text-[12px] font-medium leading-none text-white/80">$</span>
+        <span id="currencyCode" class="text-[10px] font-medium leading-none tracking-[0.16em] text-white/50">USD</span>
+        <svg
+          class="h-2.5 w-2.5 text-white/30 transition-all duration-300 group-hover:text-white/60 group-aria-expanded:rotate-180"
+          viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M1 1l4 4 4-4" />
+        </svg>
+      </button>
+    </header>
+
+    <!-- ════════════════════════════════════════════════════════════
+         QUICK RANGE TESTER
+         ════════════════════════════════════════════════════════════ -->
+    <section class="pt-8">
+      <div class="flex items-center justify-between mb-3">
+        <label for="rangeSlider" class="text-[9px] font-medium tracking-[0.3em] text-white/30">QUICK RANGE TESTER</label>
+        <span class="text-[10px] font-semibold tracking-wide text-white/70" id="rangeLabel">$0</span>
+      </div>
+      <input
+        type="range"
+        id="rangeSlider"
+        min="0"
+        max="100000"
+        step="100"
+        value="0"
+        class="w-full"
+      />
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════
+         THE INSTANT SPLIT — single input
+         ════════════════════════════════════════════════════════════ -->
+    <section class="pt-6">
+      <label
+        for="amount"
+        class="mb-3 block text-[9px] font-medium tracking-[0.35em] text-white/30"
+      >
+        AMOUNT TO ALLOCATE
+      </label>
+
+      <div
+        class="flex items-baseline gap-2 border-b border-white/10 pb-4 transition-colors duration-500 focus-within:border-white/60"
+      >
+        <span
+          data-symbol
+          class="shrink-0 text-2xl font-light leading-none text-white/25"
+        >$</span>
+
+        <input
+          id="amount"
+          type="text"
+          inputmode="decimal"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          placeholder="0"
+          aria-label="Amount to allocate"
+          class="min-w-0 flex-1 bg-transparent text-[2.75rem] font-bold leading-none tracking-[-0.03em] text-white outline-none placeholder:text-white/10"
+        />
+
+        <button
+          id="clear"
+          type="button"
+          aria-label="Clear amount"
+          class="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center self-center rounded-full border border-white/10 text-white/40 transition-transform hover:border-white/40 hover:text-white active:scale-90"
+        >
+          <svg class="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M2 2l8 8M10 2l-8 8" />
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════
+         ALLOCATIONS BREAKDOWN
+         ════════════════════════════════════════════════════════════ -->
+    <section class="mt-8">
+      <h2 class="mb-4 text-[9px] font-medium tracking-[0.3em] text-white/30">ALLOCATIONS BREAKDOWN</h2>
+
+      <div class="flex flex-col gap-3">
+
+        <!-- 01 — NEEDS ─────────────────────────────────────────────── -->
+        <article data-pillar="needs" class="rounded-2xl bg-card p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2.5">
+              <span class="h-1.5 w-1.5 rounded-full bg-white"></span>
+              <span class="text-[13px] font-semibold tracking-wide text-white">Needs</span>
+              <span class="text-[11px] font-light text-white/40">(50%)</span>
+            </div>
+            <div class="flex items-baseline gap-1">
+              <span data-symbol class="text-[13px] font-light text-white/40">$</span>
+              <span data-amount class="text-[15px] font-bold text-white">0.00</span>
+            </div>
+          </div>
+          <div class="mt-2.5 flex items-center justify-between text-[10px] font-medium tracking-wide">
+            <span class="text-white/40">Committed: <span data-committed class="text-white/60">0.00</span></span>
+            <span class="text-white/40">Available: <span data-available class="text-white/80">0.00</span></span>
+          </div>
+        </article>
+
+        <!-- 02 — WANTS ─────────────────────────────────────────────── -->
+        <article data-pillar="wants" class="rounded-2xl bg-card p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2.5">
+              <span class="h-1.5 w-1.5 rounded-full bg-white/70"></span>
+              <span class="text-[13px] font-semibold tracking-wide text-white">Wants</span>
+              <span class="text-[11px] font-light text-white/40">(30%)</span>
+            </div>
+            <div class="flex items-baseline gap-1">
+              <span data-symbol class="text-[13px] font-light text-white/40">$</span>
+              <span data-amount class="text-[15px] font-bold text-white">0.00</span>
+            </div>
+          </div>
+          <div class="mt-2.5 flex items-center justify-between text-[10px] font-medium tracking-wide">
+            <span class="text-white/40">Committed: <span data-committed class="text-white/60">0.00</span></span>
+            <span class="text-white/40">Available: <span data-available class="text-white/80">0.00</span></span>
+          </div>
+        </article>
+
+        <!-- 03 — SAVINGS ───────────────────────────────────────────── -->
+        <article data-pillar="savings" class="rounded-2xl bg-card p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2.5">
+              <span class="h-1.5 w-1.5 rounded-full bg-white/40"></span>
+              <span class="text-[13px] font-semibold tracking-wide text-white">Savings</span>
+              <span class="text-[11px] font-light text-white/40">(10%)</span>
+            </div>
+            <div class="flex items-baseline gap-1">
+              <span data-symbol class="text-[13px] font-light text-white/40">$</span>
+              <span data-amount class="text-[15px] font-bold text-white">0.00</span>
+            </div>
+          </div>
+          <div class="mt-2.5 flex items-center justify-between text-[10px] font-medium tracking-wide">
+            <span class="text-white/40">Committed: <span data-committed class="text-white/60">0.00</span></span>
+            <span class="text-white/40">Available: <span data-available class="text-white/80">0.00</span></span>
+          </div>
+        </article>
+
+        <!-- 04 — INSURANCE ─────────────────────────────────────────── -->
+        <article data-pillar="insurance" class="rounded-2xl bg-card p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2.5">
+              <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+              <span class="text-[13px] font-semibold tracking-wide text-white">Insurance</span>
+              <span class="text-[11px] font-light text-white/40">(10%)</span>
+            </div>
+            <div class="flex items-baseline gap-1">
+              <span data-symbol class="text-[13px] font-light text-white/40">$</span>
+              <span data-amount class="text-[15px] font-bold text-white">0.00</span>
+            </div>
+          </div>
+          <div class="mt-2.5 flex items-center justify-between text-[10px] font-medium tracking-wide">
+            <span class="text-white/40">Committed: <span data-committed class="text-white/60">0.00</span></span>
+            <span class="text-white/40">Available: <span data-available class="text-white/80">0.00</span></span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════
+         MINIMALIST BILL TRACKER
+         ════════════════════════════════════════════════════════════ -->
+    <section class="mt-8">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-[9px] font-medium tracking-[0.3em] text-white/30">MINIMALIST BILL TRACKER</h2>
+        <span id="activeBillCount" class="text-[10px] font-medium tracking-wide text-white/50">0 active payments</span>
+      </div>
+
+      <div class="rounded-2xl bg-card p-4">
+
+        <!-- Ledger -->
+        <div id="billList" class="mb-4">
+          <p class="py-4 text-center text-[11px] font-light tracking-[0.1em] text-white/25">No committed bills.</p>
+        </div>
+
+        <!-- Add-bill form -->
+        <form id="billForm" class="flex flex-col gap-2" novalidate>
+
+          <!-- Row 1: Description -->
+          <input
+            id="billName"
+            type="text"
+            maxlength="24"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="words"
+            spellcheck="false"
+            class="w-full rounded-lg border border-white/10 bg-black px-3 py-2.5 text-[12px] text-white placeholder:text-white/20 outline-none transition-colors focus:border-white/40"
+            placeholder="Bill description..."
+          />
+
+          <!-- Row 2: Amount | Category | Due date -->
+          <div class="flex items-stretch gap-2">
+            <input
+              id="billAmount"
+              type="text"
+              inputmode="decimal"
+              autocomplete="off"
+              class="min-w-0 flex-1 rounded-lg border border-white/10 bg-black px-3 py-2.5 text-[12px] text-white placeholder:text-white/20 outline-none transition-colors focus:border-white/40"
+              placeholder="Amount"
+            />
+
+            <select
+              id="billCategory"
+              class="w-[96px] shrink-0 appearance-none rounded-lg border border-white/10 bg-black px-3 py-2.5 text-[12px] text-white outline-none transition-colors focus:border-white/40"
+            >
+              <option value="needs" class="bg-black text-white">Needs</option>
+              <option value="wants" class="bg-black text-white">Wants</option>
+              <option value="savings" class="bg-black text-white">Savings</option>
+              <option value="insurance" class="bg-black text-white">Insurance</option>
+            </select>
+
+            <input
+              id="billDue"
+              type="date"
+              class="w-[130px] shrink-0 rounded-lg border border-white/10 bg-black px-3 py-2.5 text-[12px] text-white outline-none transition-colors focus:border-white/40"
+              aria-label="Due date"
+            />
+          </div>
+
+          <!-- Row 3: Add button (left-aligned, matches reference) -->
+          <div class="flex justify-start pt-1">
+            <button
+              type="submit"
+              class="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-black transition-transform hover:bg-white/90 active:scale-95"
+              aria-label="Add bill"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M6 1.5v9M1.5 6h9" />
+              </svg>
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════
+         FOOTER
+         ════════════════════════════════════════════════════════════ -->
+    <footer class="mt-auto pt-9">
+      <div class="flex items-center justify-between border-t border-white/[0.06] pt-5">
+        <span class="text-[9px] font-light tracking-[0.25em] text-white/20">ROUNDED TO THE CENT</span>
+        <span id="footerCurrency" class="text-[9px] font-light tracking-[0.25em] text-white/20">USD</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       CURRENCY SHEET
+       ══════════════════════════════════════════════════════════════ -->
+
+  <!-- Backdrop -->
+  <div
+    id="backdrop"
+    class="pointer-events-none fixed inset-0 z-40 bg-black/80 opacity-0 backdrop-blur-[2px] transition-opacity duration-300 ease-out"
+    aria-hidden="true"
+  ></div>
+
+  <!-- Sheet -->
+  <div
+    id="sheet"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Select currency"
+    class="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[440px] translate-y-full transition-transform duration-[480ms] ease-[cubic-bezier(0.22,0.61,0.36,1)]"
+  >
+    <div class="rounded-t-[28px] border-t border-white/[0.08] bg-[#0A0A0A] shadow-[0_-24px_60px_-20px_rgba(0,0,0,0.9)]">
+
+      <!-- Grab handle -->
+      <div class="flex justify-center pt-3">
+        <span class="h-1 w-10 rounded-full bg-white/15"></span>
+      </div>
+
+      <!-- Sheet header -->
+      <div class="flex items-center justify-between px-5 pb-2 pt-4">
+        <span class="text-[9px] font-medium tracking-[0.35em] text-white/30">CURRENCY</span>
+        <button
+          id="closeSheet"
+          type="button"
+          aria-label="Close currency selector"
+          class="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 text-white/40 transition-colors duration-300 hover:border-white/40 hover:text-white active:scale-90"
+        >
+          <svg class="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M2 2l8 8M10 2l-8 8" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Search -->
+      <div class="px-5 pb-3 pt-1">
+        <div class="relative">
+          <svg
+            class="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/25"
+            viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+          >
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5L14 14" />
+          </svg>
+
+          <input
+            id="currencySearch"
+            type="text"
+            inputmode="search"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="Search currencies…"
+            aria-label="Search currencies"
+            class="w-full rounded-xl border border-white/10 bg-black py-3 pl-10 pr-10 text-[16px] font-medium text-white placeholder:text-white/20 outline-none transition-colors duration-300 focus:border-white/40"
+          />
+
+          <button
+            id="clearSearch"
+            type="button"
+            aria-label="Clear search"
+            class="pointer-events-none absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-white/30 opacity-0 transition-opacity duration-200 hover:text-white active:scale-90"
+          >
+            <svg class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <path d="M2 2l8 8M10 2l-8 8" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Currency list -->
+      <div
+        id="currencyList"
+        class="max-h-[48vh] overflow-y-auto overscroll-contain pb-2"
+      ></div>
+
+      <!-- Footnote -->
+      <p class="border-t border-white/[0.05] px-5 pb-6 pt-4 text-[9px] font-light leading-relaxed tracking-wide text-white/20">
+        Indicative reference rates. Entered amounts and ledger entries convert instantly on switch.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ════════════════════════════════════════════════════════════
+         CONFIGURATION
+         ════════════════════════════════════════════════════════════ */
+      const PILLARS = [
+        { key: 'needs',     weight: 50 },
+        { key: 'wants',     weight: 30 },
+        { key: 'savings',   weight: 10 },
+        { key: 'insurance', weight: 10 },
+      ];
+      const PILLAR_LABEL = {
+        needs:     'NEEDS',
+        wants:     'WANTS',
+        savings:   'SAVINGS',
+        insurance: 'INSURANCE',
+      };
+      const TOTAL_WEIGHT      = 100;
+      const DURATION          = 420;
+      const MAX_INPUT_LENGTH  = 15;
+      const MAX_NAME_LENGTH   = 24;
+      const STORAGE_KEY       = 'split.state.v2';
+
+      /* Days-out thresholds for the due badge. */
+      const SOON_DAYS = 3;
+
+      /* ════════════════════════════════════════════════════════════
+         WORLD CURRENCIES
+         ════════════════════════════════════════════════════════════ */
+      const CURRENCIES = [
+        { code: 'USD', symbol: '$',    name: 'US Dollar',                 rate: 1      },
+        { code: 'EUR', symbol: '€',    name: 'Euro',                      rate: 0.92   },
+        { code: 'GBP', symbol: '£',    name: 'British Pound',             rate: 0.79   },
+        { code: 'JPY', symbol: '¥',    name: 'Japanese Yen',              rate: 149.50 },
+        { code: 'CHF', symbol: 'CHF',  name: 'Swiss Franc',               rate: 0.88   },
+        { code: 'CNY', symbol: 'CN¥',  name: 'Chinese Yuan',              rate: 7.24   },
+        { code: 'AUD', symbol: 'A$',   name: 'Australian Dollar',         rate: 1.52   },
+        { code: 'CAD', symbol: 'C$',   name: 'Canadian Dollar',           rate: 1.36   },
+        { code: 'HKD', symbol: 'HK$',  name: 'Hong Kong Dollar',          rate: 7.82   },
+        { code: 'SGD', symbol: 'S$',   name: 'Singapore Dollar',          rate: 1.34   },
+        { code: 'NZD', symbol: 'NZ$',  name: 'New Zealand Dollar',        rate: 1.64   },
+        { code: 'ALL', symbol: 'L',    name: 'Albanian Lek',              rate: 96.50  },
+        { code: 'BAM', symbol: 'KM',   name: 'Bosnia-Herzegovina Mark',   rate: 1.80   },
+        { code: 'BGN', symbol: 'лв',   name: 'Bulgarian Lev',             rate: 1.80   },
+        { code: 'BYN', symbol: 'Br',   name: 'Belarusian Ruble',          rate: 3.27   },
+        { code: 'CZK', symbol: 'Kč',   name: 'Czech Koruna',              rate: 22.80  },
+        { code: 'DKK', symbol: 'kr',   name: 'Danish Krone',              rate: 6.86   },
+        { code: 'GIP', symbol: '£',    name: 'Gibraltar Pound',           rate: 0.79   },
+        { code: 'HUF', symbol: 'Ft',   name: 'Hungarian Forint',          rate: 355    },
+        { code: 'ISK', symbol: 'kr',   name: 'Icelandic Króna',           rate: 137    },
+        { code: 'MDL', symbol: 'L',    name: 'Moldovan Leu',              rate: 17.80  },
+        { code: 'MKD', symbol: 'ден',  name: 'Macedonian Denar',          rate: 56.50  },
+        { code: 'NOK', symbol: 'kr',   name: 'Norwegian Krone',           rate: 10.65  },
+        { code: 'PLN', symbol: 'zł',   name: 'Polish Złoty',              rate: 3.95   },
+        { code: 'RON', symbol: 'lei',  name: 'Romanian Leu',              rate: 4.58   },
+        { code: 'RSD', symbol: 'дин.', name: 'Serbian Dinar',             rate: 108    },
+        { code: 'RUB', symbol: '₽',    name: 'Russian Ruble',             rate: 92.50  },
+        { code: 'SEK', symbol: 'kr',   name: 'Swedish Krona',             rate: 10.42  },
+        { code: 'TRY', symbol: '₺',    name: 'Turkish Lira',              rate: 32.10  },
+        { code: 'UAH', symbol: '₴',    name: 'Ukrainian Hryvnia',         rate: 39.50  },
+        { code: 'AED', symbol: 'د.إ',  name: 'UAE Dirham',                rate: 3.67   },
+        { code: 'AFN', symbol: '؋',    name: 'Afghan Afghani',            rate: 72.50  },
+        { code: 'AMD', symbol: '֏',    name: 'Armenian Dram',             rate: 395    },
+        { code: 'AZN', symbol: '₼',    name: 'Azerbaijani Manat',         rate: 1.70   },
+        { code: 'BHD', symbol: '.د.ب', name: 'Bahraini Dinar',            rate: 0.376  },
+        { code: 'GEL', symbol: '₾',    name: 'Georgian Lari',             rate: 2.68   },
+        { code: 'ILS', symbol: '₪',    name: 'Israeli Shekel',            rate: 3.72   },
+        { code: 'IQD', symbol: 'ع.د',  name: 'Iraqi Dinar',               rate: 1310   },
+        { code: 'IRR', symbol: '﷼',    name: 'Iranian Rial',              rate: 42000  },
+        { code: 'JOD', symbol: 'د.ا',  name: 'Jordanian Dinar',           rate: 0.709  },
+        { code: 'KGS', symbol: 'som',  name: 'Kyrgyzstani Som',           rate: 89.50  },
+        { code: 'KWD', symbol: 'د.ك',  name: 'Kuwaiti Dinar',             rate: 0.31   },
+        { code: 'KZT', symbol: '₸',    name: 'Kazakhstani Tenge',         rate: 450    },
+        { code: 'LBP', symbol: 'ل.ل',  name: 'Lebanese Pound',            rate: 89500  },
+        { code: 'OMR', symbol: '﷼',    name: 'Omani Rial',                rate: 0.385  },
+        { code: 'QAR', symbol: '﷼',    name: 'Qatari Riyal',              rate: 3.64   },
+        { code: 'SAR', symbol: '﷼',    name: 'Saudi Riyal',               rate: 3.75   },
+        { code: 'SYP', symbol: '£',    name: 'Syrian Pound',              rate: 13000  },
+        { code: 'TJS', symbol: 'ЅМ',   name: 'Tajikistani Somoni',        rate: 10.95  },
+        { code: 'TMT', symbol: 'm',    name: 'Turkmenistani Manat',       rate: 3.50   },
+        { code: 'UZS', symbol: "so'm", name: 'Uzbekistani Som',           rate: 12600  },
+        { code: 'YER', symbol: '﷼',    name: 'Yemeni Rial',               rate: 250    },
+        { code: 'AOA', symbol: 'Kz',   name: 'Angolan Kwanza',            rate: 830    },
+        { code: 'BIF', symbol: 'FBu',  name: 'Burundian Franc',           rate: 2850   },
+        { code: 'BWP', symbol: 'P',    name: 'Botswana Pula',             rate: 13.65  },
+        { code: 'CVE', symbol: '$',    name: 'Cape Verdean Escudo',       rate: 101    },
+        { code: 'DJF', symbol: 'Fdj',  name: 'Djiboutian Franc',          rate: 177.7  },
+        { code: 'DZD', symbol: 'د.ج',  name: 'Algerian Dinar',            rate: 134    },
+        { code: 'EGP', symbol: '£',    name: 'Egyptian Pound',            rate: 47.50  },
+        { code: 'ERN', symbol: 'Nfk',  name: 'Eritrean Nakfa',            rate: 15     },
+        { code: 'ETB', symbol: 'Br',   name: 'Ethiopian Birr',            rate: 57.10  },
+        { code: 'GHS', symbol: '₵',    name: 'Ghanaian Cedi',             rate: 13.10  },
+        { code: 'GMD', symbol: 'D',    name: 'Gambian Dalasi',            rate: 67.50  },
+        { code: 'GNF', symbol: 'FG',   name: 'Guinean Franc',             rate: 8590   },
+        { code: 'KES', symbol: 'KSh',  name: 'Kenyan Shilling',           rate: 132    },
+        { code: 'KMF', symbol: 'CF',   name: 'Comorian Franc',            rate: 450    },
+        { code: 'LRD', symbol: '$',    name: 'Liberian Dollar',           rate: 187    },
+        { code: 'LSL', symbol: 'L',    name: 'Lesotho Loti',              rate: 18.90  },
+        { code: 'LYD', symbol: 'ل.د',  name: 'Libyan Dinar',              rate: 4.85   },
+        { code: 'MAD', symbol: 'د.م.', name: 'Moroccan Dirham',           rate: 10.05  },
+        { code: 'MGA', symbol: 'Ar',   name: 'Malagasy Ariary',           rate: 4450   },
+        { code: 'MUR', symbol: '₨',    name: 'Mauritian Rupee',           rate: 46.30  },
+        { code: 'MWK', symbol: 'MK',   name: 'Malawian Kwacha',           rate: 1730   },
+        { code: 'MZN', symbol: 'MT',   name: 'Mozambican Metical',        rate: 63.50  },
+        { code: 'NAD', symbol: 'N$',   name: 'Namibian Dollar',           rate: 18.90  },
+        { code: 'NGN', symbol: '₦',    name: 'Nigerian Naira',            rate: 1450   },
+        { code: 'RWF', symbol: 'FRw',  name: 'Rwandan Franc',             rate: 1290   },
+        { code: 'SCR', symbol: '₨',    name: 'Seychellois Rupee',         rate: 13.50  },
+        { code: 'SDG', symbol: 'ج.س',  name: 'Sudanese Pound',            rate: 601    },
+        { code: 'SOS', symbol: 'Sh',   name: 'Somali Shilling',           rate: 571    },
+        { code: 'SSP', symbol: '£',    name: 'South Sudanese Pound',      rate: 1100   },
+        { code: 'STN', symbol: 'Db',   name: 'São Tomé Dobra',            rate: 22.50  },
+        { code: 'SZL', symbol: 'L',    name: 'Swazi Lilangeni',           rate: 18.90  },
+        { code: 'TND', symbol: 'د.ت',  name: 'Tunisian Dinar',            rate: 3.12   },
+        { code: 'TZS', symbol: 'TSh',  name: 'Tanzanian Shilling',        rate: 2550   },
+        { code: 'UGX', symbol: 'USh',  name: 'Ugandan Shilling',          rate: 3800   },
+        { code: 'XAF', symbol: 'FCFA', name: 'Central African CFA Franc', rate: 604    },
+        { code: 'XOF', symbol: 'CFA',  name: 'West African CFA Franc',    rate: 604    },
+        { code: 'ZAR', symbol: 'R',    name: 'South African Rand',        rate: 18.90  },
+        { code: 'ZMW', symbol: 'ZK',   name: 'Zambian Kwacha',            rate: 25.20  },
+        { code: 'BDT', symbol: '৳',    name: 'Bangladeshi Taka',          rate: 110    },
+        { code: 'BND', symbol: 'B$',   name: 'Brunei Dollar',             rate: 1.34   },
+        { code: 'BTN', symbol: 'Nu',   name: 'Bhutanese Ngultrum',        rate: 83.20  },
+        { code: 'IDR', symbol: 'Rp',   name: 'Indonesian Rupiah',         rate: 15650  },
+        { code: 'INR', symbol: '₹',    name: 'Indian Rupee',              rate: 83.20  },
+        { code: 'KHR', symbol: '៛',    name: 'Cambodian Riel',            rate: 4100   },
+        { code: 'KRW', symbol: '₩',    name: 'South Korean Won',          rate: 1330   },
+        { code: 'LAK', symbol: '₭',    name: 'Lao Kip',                   rate: 20700  },
+        { code: 'LKR', symbol: '₨',    name: 'Sri Lankan Rupee',          rate: 305    },
+        { code: 'MMK', symbol: 'K',    name: 'Myanmar Kyat',              rate: 2100   },
+        { code: 'MNT', symbol: '₮',    name: 'Mongolian Tögrög',          rate: 3400   },
+        { code: 'MOP', symbol: 'MOP$', name: 'Macanese Pataca',           rate: 8.06   },
+        { code: 'MVR', symbol: 'Rf',   name: 'Maldivian Rufiyaa',         rate: 15.40  },
+        { code: 'MYR', symbol: 'RM',   name: 'Malaysian Ringgit',         rate: 4.72   },
+        { code: 'NPR', symbol: '₨',    name: 'Nepalese Rupee',            rate: 133    },
+        { code: 'PHP', symbol: '₱',    name: 'Philippine Peso',           rate: 56.30  },
+        { code: 'PKR', symbol: '₨',    name: 'Pakistani Rupee',           rate: 278    },
+        { code: 'THB', symbol: '฿',    name: 'Thai Baht',                 rate: 35.80  },
+        { code: 'TWD', symbol: 'NT$',  name: 'New Taiwan Dollar',         rate: 32.10  },
+        { code: 'VND', symbol: '₫',    name: 'Vietnamese Dong',           rate: 24500  },
+        { code: 'ANG', symbol: 'ƒ',    name: 'Netherlands Antillean Guilder', rate: 1.79 },
+        { code: 'ARS', symbol: '$',    name: 'Argentine Peso',            rate: 830    },
+        { code: 'AWG', symbol: 'ƒ',    name: 'Aruban Florin',             rate: 1.79   },
+        { code: 'BBD', symbol: '$',    name: 'Barbadian Dollar',          rate: 2      },
+        { code: 'BMD', symbol: '$',    name: 'Bermudian Dollar',          rate: 1      },
+        { code: 'BOB', symbol: 'Bs.',  name: 'Bolivian Boliviano',        rate: 6.91   },
+        { code: 'BRL', symbol: 'R$',   name: 'Brazilian Real',            rate: 5.05   },
+        { code: 'BSD', symbol: '$',    name: 'Bahamian Dollar',           rate: 1      },
+        { code: 'BZD', symbol: 'BZ$',  name: 'Belize Dollar',             rate: 2.01   },
+        { code: 'CLP', symbol: '$',    name: 'Chilean Peso',              rate: 950    },
+        { code: 'COP', symbol: '$',    name: 'Colombian Peso',            rate: 3950   },
+        { code: 'CRC', symbol: '₡',    name: 'Costa Rican Colón',         rate: 512    },
+        { code: 'CUP', symbol: '₱',    name: 'Cuban Peso',                rate: 24     },
+        { code: 'DOP', symbol: 'RD$',  name: 'Dominican Peso',            rate: 58.50  },
+        { code: 'FKP', symbol: '£',    name: 'Falkland Islands Pound',    rate: 0.79   },
+        { code: 'GTQ', symbol: 'Q',    name: 'Guatemalan Quetzal',        rate: 7.82   },
+        { code: 'GYD', symbol: 'G$',   name: 'Guyanese Dollar',           rate: 209    },
+        { code: 'HNL', symbol: 'L',    name: 'Honduran Lempira',          rate: 24.70  },
+        { code: 'HTG', symbol: 'G',    name: 'Haitian Gourde',            rate: 132    },
+        { code: 'JMD', symbol: 'J$',   name: 'Jamaican Dollar',           rate: 155    },
+        { code: 'KYD', symbol: '$',    name: 'Cayman Islands Dollar',     rate: 0.83   },
+        { code: 'MXN', symbol: 'MX$',  name: 'Mexican Peso',              rate: 17.05  },
+        { code: 'NIO', symbol: 'C$',   name: 'Nicaraguan Córdoba',        rate: 36.70  },
+        { code: 'PAB', symbol: 'B/.',  name: 'Panamanian Balboa',         rate: 1      },
+        { code: 'PEN', symbol: 'S/',   name: 'Peruvian Sol',              rate: 3.72   },
+        { code: 'PYG', symbol: '₲',    name: 'Paraguayan Guaraní',        rate: 7300   },
+        { code: 'SRD', symbol: '$',    name: 'Surinamese Dollar',         rate: 35.50  },
+        { code: 'TTD', symbol: 'TT$',  name: 'Trinidad & Tobago Dollar',  rate: 6.78   },
+        { code: 'UYU', symbol: '$U',   name: 'Uruguayan Peso',            rate: 39.50  },
+        { code: 'VES', symbol: 'Bs',   name: 'Venezuelan Bolívar',        rate: 36.50  },
+        { code: 'XCD', symbol: '$',    name: 'East Caribbean Dollar',     rate: 2.70   },
+        { code: 'FJD', symbol: 'FJ$',  name: 'Fijian Dollar',             rate: 2.24   },
+        { code: 'PGK', symbol: 'K',    name: 'Papua New Guinean Kina',    rate: 3.78   },
+        { code: 'SBD', symbol: 'SI$',  name: 'Solomon Islands Dollar',    rate: 8.45   },
+        { code: 'TOP', symbol: 'T$',   name: 'Tongan Paʻanga',            rate: 2.36   },
+        { code: 'VUV', symbol: 'VT',   name: 'Vanuatu Vatu',              rate: 119    },
+        { code: 'WST', symbol: 'T',    name: 'Samoan Tala',               rate: 2.72   },
+        { code: 'XPF', symbol: '₣',    name: 'CFP Franc',                 rate: 110    },
+        { code: 'SHP', symbol: '£',    name: 'Saint Helena Pound',        rate: 0.79   },
+        { code: 'KPW', symbol: '₩',    name: 'North Korean Won',          rate: 900    },
+      ];
+
+      CURRENCIES.sort(function (a, b) {
+        return a.code < b.code ? -1 : a.code > b.code ? 1 : 0;
+      });
+
+      const REDUCED_MOTION =
+        window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      /* ════════════════════════════════════════════════════════════
+         DOM REFERENCES
+         ════════════════════════════════════════════════════════════ */
+      const app       = document.getElementById('app');
+      const input     = document.getElementById('amount');
+      const rangeSlider = document.getElementById('rangeSlider');
+      const rangeLabel  = document.getElementById('rangeLabel');
+      const clearBtn  = document.getElementById('clear');
+
+      const symbolEls = document.querySelectorAll('[data-symbol]');
+      const codeEl    = document.getElementById('currencyCode');
+      const footerCode= document.getElementById('footerCurrency');
+
+      const currencyBtn  = document.getElementById('currencyBtn');
+      const backdrop     = document.getElementById('backdrop');
+      const sheet        = document.getElementById('sheet');
+      const sheetClose   = document.getElementById('closeSheet');
+      const curList      = document.getElementById('currencyList');
+      const searchInput  = document.getElementById('currencySearch');
+      const clearSearch  = document.getElementById('clearSearch');
+
+      const billList    = document.getElementById('billList');
+      const activeBillCount = document.getElementById('activeBillCount');
+
+      const billForm     = document.getElementById('billForm');
+      const billNameInput= document.getElementById('billName');
+      const billAmtInput = document.getElementById('billAmount');
+      const billCategory = document.getElementById('billCategory');
+      const billDueInput = document.getElementById('billDue');
+
+      const ui = {};
+      document.querySelectorAll('[data-pillar]').forEach(function (el) {
+        const amountEl = el.querySelector('[data-amount]');
+        if (!amountEl) return;
+
+        ui[el.dataset.pillar] = {
+          amount:    amountEl,
+          committed: el.querySelector('[data-committed]'),
+          available: el.querySelector('[data-available]'),
+        };
+      });
+
+      /* ════════════════════════════════════════════════════════════
+         STATE
+         ════════════════════════════════════════════════════════════ */
+      function blankMetrics() {
+        return {
+          needs:     { total: 0, committed: 0, available: 0 },
+          wants:     { total: 0, committed: 0, available: 0 },
+          savings:   { total: 0, committed: 0, available: 0 },
+          insurance: { total: 0, committed: 0, available: 0 },
+        };
+      }
+
+      const displayed = blankMetrics();
+      const targets   = blankMetrics();
+
+      let bills           = [];
+      let currentCurrency = CURRENCIES.filter(function (c) { return c.code === 'USD'; })[0];
+      let rafId           = null;
+      let sheetOpen       = false;
+      let lastAddedId     = null;
+
+      const nf = new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+      /* ════════════════════════════════════════════════════════════
+         DATE HELPERS
+         ════════════════════════════════════════════════════════════ */
+      /* Local-midnight today (avoids UTC drift). */
+      function todayLocal() {
+        const n = new Date();
+        return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+      }
+
+      /* Parse "YYYY-MM-DD" into a local-midnight Date, or null. */
+      function parseDateKey(key) {
+        if (typeof key !== 'string') return null;
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+        if (!m) return null;
+        const y = parseInt(m[1], 10);
+        const mo = parseInt(m[2], 10) - 1;
+        const d = parseInt(m[3], 10);
+        const dt = new Date(y, mo, d);
+        if (dt.getFullYear() !== y || dt.getMonth() !== mo || dt.getDate() !== d) return null;
+        return dt;
+      }
+
+      /* Whole days from today (local) to the given due date. */
+      function daysUntil(dueKey) {
+        const due = parseDateKey(dueKey);
+        if (!due) return null;
+        const diff = due.getTime() - todayLocal().getTime();
+        return Math.round(diff / 86400000);
+      }
+
+      /* Human-readable short label, e.g. "TODAY", "IN 3D", "5D AGO". */
+      function formatDueLabel(dueKey) {
+        const d = daysUntil(dueKey);
+        if (d === null) return '—';
+        if (d === 0)  return 'TODAY';
+        if (d === 1)  return 'TOMORROW';
+        if (d > 1)    return 'IN ' + d + 'D';
+        if (d === -1) return '1D AGO';
+        return Math.abs(d) + 'D AGO';
+      }
+
+      /* "12 OCT" style short date. */
+      function formatShortDate(dueKey) {
+        const d = parseDateKey(dueKey);
+        if (!d) return '—';
+        const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+        return d.getDate() + ' ' + months[d.getMonth()];
+      }
+
+      function isoDate(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + day;
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         PERSISTENCE
+         ════════════════════════════════════════════════════════════ */
+      function persist() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            v: 2,
+            currency: currentCurrency.code,
+            bills: bills,
+          }));
+        } catch (e) { /* storage unavailable */ }
+      }
+
+      function restore() {
+        let raw;
+        try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return; }
+        if (!raw) return;
+
+        let data;
+        try { data = JSON.parse(raw); } catch (e) { return; }
+        if (!data || typeof data !== 'object') return;
+
+        if (typeof data.currency === 'string') {
+          const found = CURRENCIES.filter(function (c) { return c.code === data.currency; })[0];
+          if (found) currentCurrency = found;
+        }
+
+        if (Array.isArray(data.bills)) {
+          bills = data.bills
+            .filter(function (b) {
+              return b &&
+                typeof b.id === 'string' &&
+                typeof b.name === 'string' &&
+                typeof b.amount === 'number' && isFinite(b.amount) && b.amount > 0 &&
+                typeof b.pillar === 'string' && PILLAR_LABEL[b.pillar];
+            })
+            .map(function (b) {
+              /* due: "YYYY-MM-DD" or null (legacy entries) */
+              const due = typeof b.due === 'string' && parseDateKey(b.due) ? b.due : null;
+              return {
+                id:        b.id,
+                name:      String(b.name).slice(0, MAX_NAME_LENGTH),
+                amount:    Math.round(b.amount * 100) / 100,
+                pillar:    b.pillar,
+                settled:   !!b.settled,
+                due:       due,
+                createdAt: typeof b.createdAt === 'number' ? b.createdAt : Date.now(),
+              };
+            });
+        }
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         UTILITIES
+         ════════════════════════════════════════════════════════════ */
+      function uid() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      }
+
+      function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      function toInputString(n) {
+        const fixed = n.toFixed(2);
+        if (fixed.slice(-3) === '.00') return fixed.slice(0, -3);
+        if (fixed.slice(-1) === '0')   return fixed.slice(0, -1);
+        return fixed;
+      }
+
+      function sanitize(raw) {
+        let s = String(raw).replace(/[^0-9.]/g, '');
+        const firstDot = s.indexOf('.');
+        if (firstDot !== -1) {
+          s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
+        }
+        if (s.indexOf('.') !== -1) {
+          const parts = s.split('.');
+          s = parts[0] + '.' + parts[1].slice(0, 2);
+        }
+        s = s.replace(/^0+(?=\d)/, '');
+        if (s.charAt(0) === '.') s = '0' + s;
+        return s.slice(0, MAX_INPUT_LENGTH);
+      }
+
+      function parseAmount(str) {
+        const n = parseFloat(str);
+        return Number.isFinite(n) && n > 0 ? n : 0;
+      }
+
+      function fmtSigned(n) {
+        const v = Math.abs(n) < 0.005 ? 0 : n;
+        return v < 0 ? '\u2212' + nf.format(Math.abs(v)) : nf.format(v);
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         MATH
+         ════════════════════════════════════════════════════════════ */
+      function split(total) {
+        const cents = Math.max(0, Math.round(total * 100));
+        const raw = PILLARS.map(function (p) {
+          return (cents * p.weight) / TOTAL_WEIGHT;
+        });
+        const out = raw.map(function (v) { return Math.floor(v); });
+        const remainder = cents - out.reduce(function (a, b) { return a + b; }, 0);
+        const order = raw
+          .map(function (v, i) { return { i: i, frac: v - Math.floor(v) }; })
+          .sort(function (a, b) { return b.frac - a.frac || a.i - b.i; });
+
+        for (let k = 0; k < remainder; k++) {
+          out[order[k % out.length].i] += 1;
+        }
+        return out.map(function (c) { return c / 100; });
+      }
+
+      function committedByPillar() {
+        const map = { needs: 0, wants: 0, savings: 0, insurance: 0 };
+        for (let i = 0; i < bills.length; i++) {
+          map[bills[i].pillar] += bills[i].amount;
+        }
+        return map;
+      }
+
+      /* Sort: unpaid first, then by soonest due date, then created. */
+      function sortBills() {
+        bills.sort(function (a, b) {
+          if (a.settled !== b.settled) return a.settled ? 1 : -1;
+
+          const da = a.due ? parseDateKey(a.due).getTime() : Infinity;
+          const db = b.due ? parseDateKey(b.due).getTime() : Infinity;
+          if (da !== db) return da - db;
+
+          return a.createdAt - b.createdAt;
+        });
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         PAINT
+         ════════════════════════════════════════════════════════════ */
+      function paint() {
+        for (let i = 0; i < PILLARS.length; i++) {
+          const key = PILLARS[i].key;
+          const d = displayed[key];
+          const el = ui[key];
+
+          el.amount.textContent    = nf.format(d.total);
+          el.committed.textContent = nf.format(Math.max(0, d.committed));
+          el.available.textContent = fmtSigned(d.available);
+        }
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         ANIMATE
+         ════════════════════════════════════════════════════════════ */
+      function animateTo() {
+        if (rafId) cancelAnimationFrame(rafId);
+
+        if (REDUCED_MOTION) {
+          for (let i = 0; i < PILLARS.length; i++) {
+            const key = PILLARS[i].key;
+            displayed[key].total     = targets[key].total;
+            displayed[key].committed = targets[key].committed;
+            displayed[key].available = targets[key].available;
+          }
+          paint();
+          return;
+        }
+
+        const from = {};
+        for (let i = 0; i < PILLARS.length; i++) {
+          const key = PILLARS[i].key;
+          from[key] = {
+            total:     displayed[key].total,
+            committed: displayed[key].committed,
+            available: displayed[key].available,
+          };
+        }
+
+        const start = performance.now();
+
+        function step(now) {
+          const t = Math.min(1, (now - start) / DURATION);
+          const eased = 1 - Math.pow(1 - t, 3);
+
+          for (let i = 0; i < PILLARS.length; i++) {
+            const key = PILLARS[i].key;
+            const f  = from[key];
+            const tg = targets[key];
+
+            displayed[key].total     = f.total     + (tg.total     - f.total)     * eased;
+            displayed[key].committed = f.committed + (tg.committed - f.committed) * eased;
+            displayed[key].available = f.available + (tg.available - f.available) * eased;
+          }
+          paint();
+
+          if (t < 1) {
+            rafId = requestAnimationFrame(step);
+          } else {
+            for (let i = 0; i < PILLARS.length; i++) {
+              const key = PILLARS[i].key;
+              displayed[key].total     = targets[key].total;
+              displayed[key].committed = targets[key].committed;
+              displayed[key].available = targets[key].available;
+            }
+            paint();
+            rafId = null;
+          }
+        }
+
+        rafId = requestAnimationFrame(step);
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         UPDATE
+         ════════════════════════════════════════════════════════════ */
+      function update() {
+        const total     = parseAmount(input.value);
+        const parts     = split(total);
+        const committed = committedByPillar();
+
+        for (let i = 0; i < PILLARS.length; i++) {
+          const pillar = PILLARS[i];
+          const key    = pillar.key;
+
+          const allocated = parts[i];
+          const commit    = committed[key];
+          const available = allocated - commit;
+
+          targets[key].total     = allocated;
+          targets[key].committed = commit;
+          targets[key].available = available;
+
+          ui[key].available.classList.toggle('is-negative', available < -0.005);
+        }
+
+        animateTo();
+
+        if (total >= 0 && total <= 100000) {
+          rangeSlider.value = total;
+        }
+        rangeLabel.textContent = nf.format(total);
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         BILL LEDGER — render
+         ════════════════════════════════════════════════════════════ */
+      function dueBadgeHtml(bill) {
+        if (!bill.due) {
+          return '<span class="due-badge">NO DATE</span>';
+        }
+
+        const d = daysUntil(bill.due);
+        const label = formatDueLabel(bill.due) + ' · ' + formatShortDate(bill.due);
+
+        let cls = 'due-badge';
+        if (d !== null && d < 0 && !bill.settled) cls += ' is-overdue';
+        else if (d !== null && d <= SOON_DAYS && !bill.settled) cls += ' is-soon';
+
+        return '<span class="' + cls + '">' + escapeHtml(label) + '</span>';
+      }
+
+      function billRowHtml(b) {
+        const settled = b.settled;
+        const name    = escapeHtml(b.name);
+        const pillar  = PILLAR_LABEL[b.pillar];
+        const isNew   = b.id === lastAddedId;
+
+        const d = b.due ? daysUntil(b.due) : null;
+        const overdue = !settled && d !== null && d < 0;
+
+        const rowCls = 'bill-row'
+          + (settled ? ' is-settled' : '')
+          + (overdue ? ' is-overdue' : '')
+          + (isNew   ? ' is-new' : '');
+
+        return (
+          '<div class="' + rowCls + '" data-id="' + b.id + '">' +
+            '<button type="button" class="bill-toggle" data-action="toggle" ' +
+              'aria-pressed="' + settled + '" ' +
+              'aria-label="' + (settled ? 'Mark as pending' : 'Mark as settled') + '">' +
+              '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" ' +
+                'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+                '<path d="M2.5 6.2l2.4 2.4L9.5 3.8"/>' +
+              '</svg>' +
+            '</button>' +
+
+            '<div class="min-w-0 flex-1">' +
+              '<div class="relative min-w-0">' +
+                '<span class="bill-name">' + name + '</span>' +
+              '</div>' +
+              '<div class="bill-meta">' +
+                '<span class="bill-meta-pillar text-white/30">' + pillar + '</span>' +
+                '<span class="text-white/10">&middot;</span>' +
+                '<span data-status class="' + (settled ? 'text-white/55' : 'text-white/25') + '">' +
+                  (settled ? 'SETTLED' : 'PENDING') +
+                '</span>' +
+                dueBadgeHtml(b) +
+              '</div>' +
+            '</div>' +
+
+            '<div class="bill-amount">' + nf.format(b.amount) + '</div>' +
+
+            '<button type="button" class="bill-delete" data-action="delete" aria-label="Delete ' + name + '">' +
+              '<svg class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" ' +
+                'stroke-width="1.6" stroke-linecap="round" aria-hidden="true">' +
+                '<path d="M2.5 2.5l7 7M9.5 2.5l-7 7"/>' +
+              '</svg>' +
+            '</button>' +
+          '</div>'
+        );
+      }
+
+      function renderBills() {
+        sortBills();
+
+        if (bills.length === 0) {
+          billList.innerHTML =
+            '<p class="py-4 text-center text-[11px] font-light tracking-[0.1em] text-white/25">No committed bills.</p>';
+        } else {
+          billList.innerHTML = bills.map(billRowHtml).join('');
+        }
+
+        lastAddedId = null;
+
+        const pending = bills.filter(function (b) { return !b.settled; }).length;
+        const overdue = bills.filter(function (b) {
+          if (b.settled || !b.due) return false;
+          const d = daysUntil(b.due);
+          return d !== null && d < 0;
+        }).length;
+
+        let label = pending + ' active payment' + (pending === 1 ? '' : 's');
+        if (overdue > 0) label += ' · ' + overdue + ' overdue';
+
+        activeBillCount.textContent = label;
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         BILL LEDGER — mutations
+         ════════════════════════════════════════════════════════════ */
+      function toggleBill(id) {
+        const bill = bills.filter(function (b) { return b.id === id; })[0];
+        if (!bill) return;
+
+        bill.settled = !bill.settled;
+        persist();
+
+        /* Re-render to reorder (unpaid float to top). */
+        renderBills();
+      }
+
+      function removeBill(id) {
+        const row = billList.querySelector('[data-id="' + id + '"]');
+
+        function commit() {
+          bills = bills.filter(function (b) { return b.id !== id; });
+          persist();
+          renderBills();
+          update();
+        }
+
+        if (row && !REDUCED_MOTION) {
+          row.classList.add('is-removing');
+          window.setTimeout(commit, 280);
+        } else {
+          commit();
+        }
+      }
+
+      function addBill() {
+        const name   = billNameInput.value.trim();
+        const amount = parseAmount(billAmtInput.value);
+        const pillar = billCategory.value;
+        const dueRaw = billDueInput.value;
+
+        if (!name || amount <= 0) {
+          if (!name) billNameInput.focus();
+          else billAmtInput.focus();
+          return;
+        }
+
+        /* Default to today if no date picked. */
+        let due = null;
+        if (dueRaw) {
+          const parsed = parseDateKey(dueRaw);
+          if (parsed) due = isoDate(parsed);
+        }
+        if (!due) due = isoDate(todayLocal());
+
+        const bill = {
+          id:        uid(),
+          name:      name.slice(0, MAX_NAME_LENGTH),
+          amount:    Math.round(amount * 100) / 100,
+          pillar:    pillar,
+          settled:   false,
+          due:       due,
+          createdAt: Date.now(),
+        };
+
+        bills.push(bill);
+        lastAddedId = bill.id;
+        persist();
+        renderBills();
+        update();
+
+        billNameInput.value = '';
+        billAmtInput.value  = '';
+        billDueInput.value  = '';
+        billNameInput.focus();
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         CURRENCY — UI sync
+         ════════════════════════════════════════════════════════════ */
+      function syncCurrencyUI() {
+        for (let i = 0; i < symbolEls.length; i++) {
+          symbolEls[i].textContent = currentCurrency.symbol;
+        }
+        codeEl.textContent     = currentCurrency.code;
+        footerCode.textContent = currentCurrency.code;
+        renderCurrencyList();
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         CURRENCY — searchable list
+         ════════════════════════════════════════════════════════════ */
+      function filterCurrencies(query) {
+        const q = String(query || '').trim().toLowerCase();
+        if (!q) return CURRENCIES;
+
+        return CURRENCIES.filter(function (c) {
+          return c.code.toLowerCase().indexOf(q) !== -1
+              || c.name.toLowerCase().indexOf(q) !== -1
+              || c.symbol.toLowerCase().indexOf(q) !== -1;
+        });
+      }
+
+      function renderCurrencyList() {
+        const query   = searchInput ? searchInput.value : '';
+        const results = filterCurrencies(query);
+
+        if (results.length === 0) {
+          curList.innerHTML =
+            '<div class="py-10 text-center">' +
+              '<p class="text-[10px] font-light tracking-[0.15em] text-white/25">' +
+                'No currencies match &ldquo;' + escapeHtml(query.trim()) + '&rdquo;' +
+              '</p>' +
+            '</div>';
+          return;
+        }
+
+        curList.innerHTML = results.map(function (c) {
+          const active = c.code === currentCurrency.code;
+
+          return (
+            '<button type="button" data-code="' + c.code + '" ' +
+              'aria-pressed="' + active + '" ' +
+              'class="flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors duration-200 ' +
+              (active ? 'bg-white/[0.045]' : 'hover:bg-white/[0.025] active:bg-white/[0.05]') + '">' +
+
+              '<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[11px] font-medium transition-colors duration-200 ' +
+                (active ? 'border-white/40 text-white' : 'border-white/10 text-white/50') + '">' +
+                escapeHtml(c.symbol) +
+              '</span>' +
+
+              '<span class="min-w-0 flex-1">' +
+                '<span class="block text-[12px] font-medium tracking-[0.08em] transition-colors duration-200 ' +
+                  (active ? 'text-white' : 'text-white/70') + '">' + escapeHtml(c.code) + '</span>' +
+                '<span class="block truncate text-[10px] font-light tracking-wide text-white/25">' + escapeHtml(c.name) + '</span>' +
+              '</span>' +
+
+              '<svg class="h-3.5 w-3.5 shrink-0 text-white transition-opacity duration-200 ' +
+                (active ? 'opacity-100' : 'opacity-0') + '" ' +
+                'viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+                'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+                '<path d="M3 8.5l3.5 3.5L13 5"/>' +
+              '</svg>' +
+            '</button>'
+          );
+        }).join('');
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         CURRENCY — switching
+         ════════════════════════════════════════════════════════════ */
+      function selectCurrency(code) {
+        const next = CURRENCIES.filter(function (c) { return c.code === code; })[0];
+
+        if (!next || next.code === currentCurrency.code) {
+          closeSheet();
+          return;
+        }
+
+        const prev   = currentCurrency;
+        const amount = parseAmount(input.value);
+
+        if (amount > 0) {
+          const converted = (amount / prev.rate) * next.rate;
+          input.value = sanitize(toInputString(Math.round(converted * 100) / 100));
+        }
+
+        bills = bills.map(function (b) {
+          const converted = (b.amount / prev.rate) * next.rate;
+          return Object.assign({}, b, {
+            amount: Math.round(converted * 100) / 100,
+          });
+        });
+
+        currentCurrency = next;
+        persist();
+        syncCurrencyUI();
+        renderBills();
+        update();
+        closeSheet();
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         SHEET — open / close
+         ════════════════════════════════════════════════════════════ */
+      function openSheet() {
+        if (sheetOpen) return;
+        sheetOpen = true;
+
+        searchInput.value = '';
+        clearSearch.classList.add('opacity-0', 'pointer-events-none');
+        renderCurrencyList();
+
+        backdrop.classList.remove('pointer-events-none', 'opacity-0');
+        sheet.classList.remove('translate-y-full');
+        currencyBtn.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
+
+        if (!('ontouchstart' in window)) {
+          window.setTimeout(function () {
+            if (sheetOpen) searchInput.focus();
+          }, 400);
+        }
+      }
+
+      function closeSheet() {
+        if (!sheetOpen) return;
+        sheetOpen = false;
+
+        backdrop.classList.add('pointer-events-none', 'opacity-0');
+        sheet.classList.add('translate-y-full');
+        currencyBtn.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         EVENTS
+         ════════════════════════════════════════════════════════════ */
+
+      /* ── Main amount input ─────────────────────────────────────── */
+      input.addEventListener('input', function () {
+        const clean = sanitize(input.value);
+        if (input.value !== clean) input.value = clean;
+        update();
+      });
+
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          input.blur();
+        }
+      });
+
+      clearBtn.addEventListener('click', function () {
+        input.value = '';
+        update();
+        input.focus();
+      });
+
+      /* ── Quick Range Slider ────────────────────────────────────── */
+      rangeSlider.addEventListener('input', function () {
+        const val = rangeSlider.value;
+        input.value = val;
+        update();
+      });
+
+      /* ── Bill form submit ──────────────────────────────────────── */
+      billForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        addBill();
+      });
+
+      billAmtInput.addEventListener('input', function () {
+        const clean = sanitize(billAmtInput.value);
+        if (billAmtInput.value !== clean) billAmtInput.value = clean;
+      });
+
+      billAmtInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addBill();
+        }
+      });
+
+      /* ── Ledger interactions (event delegation) ────────────────── */
+      billList.addEventListener('click', function (e) {
+        const toggleBtn = e.target.closest('[data-action="toggle"]');
+        if (toggleBtn) {
+          const row = toggleBtn.closest('[data-id]');
+          if (row) toggleBill(row.dataset.id);
+          return;
+        }
+
+        const delBtn = e.target.closest('[data-action="delete"]');
+        if (delBtn) {
+          const row = delBtn.closest('[data-id]');
+          if (row) removeBill(row.dataset.id);
+        }
+      });
+
+      /* ── Currency sheet ────────────────────────────────────────── */
+      currencyBtn.addEventListener('click', function () {
+        sheetOpen ? closeSheet() : openSheet();
+      });
+
+      sheetClose.addEventListener('click', closeSheet);
+      backdrop.addEventListener('click', closeSheet);
+
+      /* ── Search behaviour ──────────────────────────────────────── */
+      searchInput.addEventListener('input', function () {
+        const hasText = searchInput.value.length > 0;
+        clearSearch.classList.toggle('opacity-0', !hasText);
+        clearSearch.classList.toggle('pointer-events-none', !hasText);
+        renderCurrencyList();
+      });
+
+      searchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          if (searchInput.value.length > 0) {
+            e.stopPropagation();
+            searchInput.value = '';
+            clearSearch.classList.add('opacity-0', 'pointer-events-none');
+            renderCurrencyList();
+          }
+        }
+      });
+
+      clearSearch.addEventListener('click', function () {
+        searchInput.value = '';
+        clearSearch.classList.add('opacity-0', 'pointer-events-none');
+        renderCurrencyList();
+        searchInput.focus();
+      });
+
+      /* ── Currency pick ─────────────────────────────────────────── */
+      curList.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-code]');
+        if (!btn) return;
+        selectCurrency(btn.dataset.code);
+      });
+
+      /* ── Global escape ─────────────────────────────────────────── */
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        if (sheetOpen) { closeSheet(); return; }
+      });
+
+      /* ════════════════════════════════════════════════════════════
+         BOOT
+         ════════════════════════════════════════════════════════════ */
+      restore();
+      syncCurrencyUI();
+
+      /* Pre-fill the date picker with today. */
+      billDueInput.value = isoDate(todayLocal());
+
+      renderBills();
+      paint();
+
+      const initialAmount = parseAmount(input.value);
+      if (initialAmount >= 0 && initialAmount <= 100000) {
+        rangeSlider.value = initialAmount;
+      }
+      rangeLabel.textContent = nf.format(initialAmount);
+
+      update();
+    })();
+  </script>
+</body>
+</html>
